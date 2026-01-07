@@ -2,11 +2,18 @@
 class PlateCycler:
     def __init__(self, name):
         self._cycle_gcode = ""
-        with open("gcode/chitu/change-plate.gcode", 'r') as file:
+        with open(f"gcode/{name}/change-plate.gcode", 'r') as file:
             self._cycle_gcode = file.read()
+
+        self._pause_gcode = ""
+        with open(f"gode/{name}/pause.gcode", 'r') as file:
+            self._pause_gcode = file.read()
     
     def get_cycle_gcode(self, insert_pause: bool) -> str:
+        ret += "\n"
         ret = self._cycle_gcode
         if insert_pause:
-            pass
+            ret += "\n"
+            ret += self._pause_gcode
+        ret += "\n"
         return ret
