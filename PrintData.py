@@ -30,6 +30,7 @@ class PrintData:
         self._gcode = ""
         self._image = None
         self._filaments = []
+        self._print_time_seconds = None
 
     def get_name(self) -> str:
         return self._name
@@ -54,3 +55,9 @@ class PrintData:
 
     def set_filaments(self, filaments: list[Filament]) -> None:
         self._filaments = filaments
+
+    def get_print_time_seconds(self):
+        return self._print_time_seconds
+
+    def set_print_time_seconds(self, print_time_seconds) -> None:
+        self._print_time_seconds = print_time_seconds
