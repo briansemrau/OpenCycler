@@ -1,4 +1,4 @@
-class Ecosystem:
+class OC_Ecosystem:
     def build_output(self, template_path: str, gcode_data: str, output_path: str) -> None:
         raise NotImplementedError("build_output must be implemented by subclasses.")
 

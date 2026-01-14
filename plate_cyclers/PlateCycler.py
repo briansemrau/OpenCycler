@@ -1,5 +1,5 @@
 
-class PlateCycler:
+class OC_PlateCycler:
     def __init__(self, name, ecosystem):
         self._cycle_gcode = ""
         with open(f"gcode/{name}/change-plate.gcode", 'r') as file:

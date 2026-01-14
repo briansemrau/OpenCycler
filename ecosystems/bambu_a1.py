@@ -3,13 +3,14 @@ import re
 import sys
 import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from ecosystems.Ecosystem import Ecosystem
-from PrintData import PrintData
+from ecosystems.Ecosystem import OC_Ecosystem
+from PrintData import OC_Filament, OC_FilamentUsage, OC_Print
 
 
-class BambuA1(Ecosystem):
+class BambuA1(OC_Ecosystem):
     def build_output(self, template_path: str, gcode_data: str, output_path: str) -> None:
         if not output_path:
             output_path = "output.3mf"
@@ -32,8 +33,8 @@ class BambuA1(Ecosystem):
                     zipout.writestr(info, zipref.read(info.filename))
         print(f"\nBuilt {output_path}")
 
-    def extract_file(self, filename: str) -> PrintData:
-        print_data = PrintData()
+    def extract_file(self, filename: str) -> OC_Print:
+        print_data = OC_Print()
         print_data.set_name(Path(filename).name)
 
         with tempfile.TemporaryDirectory() as tempdirname:
@@ -57,6 +58,12 @@ class BambuA1(Ecosystem):
                 print_data.set_gcode(gcode_data)
                 print_data.set_print_time_seconds(self._extract_print_time_seconds(gcode_data))
 
+            slice_info_path = metadata_dir / "slice_info.config"
+            if slice_info_path.exists():
+                filaments, filament_usage = self._extract_filament_info(slice_info_path)
+                print_data.set_filaments(filaments)
+                print_data.set_filament_usage(filament_usage)
+
         return print_data
 
     def _extract_print_time_seconds(self, gcode_data: str):
@@ -75,3 +82,26 @@ class BambuA1(Ecosystem):
         if seconds_match:
             total_seconds += int(seconds_match.group(1))
         return total_seconds
+
+    def _extract_filament_info(self, slice_info_path: Path) -> tuple[list[OC_Filament], list[OC_FilamentUsage]]:
+        try:
+            tree = ET.parse(slice_info_path)
+        except ET.ParseError:
+            return [], []
+        root = tree.getroot()
+        filaments: list[OC_Filament] = []
+        filament_usage: list[OC_FilamentUsage] = []
+
+        for filament_elem in root.findall(".//filament"):
+            ams_id = filament_elem.get("id", "")
+            filament_type = filament_elem.get("type", "")
+            color = filament_elem.get("color", "")
+            filaments.append(OC_Filament(ams_id, filament_type, color))
+
+            used_g = filament_elem.get("used_g")
+            used_m = filament_elem.get("used_m")
+            grams = float(used_g) if used_g else None
+            meters = float(used_m) if used_m else None
+            filament_usage.append(OC_FilamentUsage(ams_id, grams, meters))
+
+        return filaments, filament_usage
