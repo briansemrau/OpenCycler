@@ -53,13 +53,11 @@ class OC_FilamentUsage:
         self._meters = meters
 
 class OC_Print:
-    def __init__(self):
-        self._name = ""
-        self._gcode = ""
+    def __init__(self, name: str = "", gcode: str = "", print_time_seconds: int | None = None):
+        self._name = name
+        self._gcode = gcode
         self._image = None
-        self._filaments = {}
-        self._filament_usage = {}
-        self._print_time_seconds = None
+        self._print_time_seconds = print_time_seconds
 
     def get_name(self) -> str:
         return self._name
@@ -79,6 +77,18 @@ class OC_Print:
     def set_image(self, image) -> None:
         self._image = image
 
+    def get_print_time_seconds(self):
+        return self._print_time_seconds
+
+    def set_print_time_seconds(self, print_time_seconds) -> None:
+        self._print_time_seconds = print_time_seconds
+
+class OC_FilePrint(OC_Print):
+    def __init__(self):
+        super().__init__()
+        self._filaments = {}
+        self._filament_usage = {}
+
     def get_filaments(self) -> dict[str, OC_Filament]:
         return self._filaments
 
@@ -93,11 +103,13 @@ class OC_Print:
         for filament in filament_usage:
             self._filament_usage[filament.get_ams_id()] = filament
 
-    def get_print_time_seconds(self):
-        return self._print_time_seconds
+class OC_CyclePrint(OC_Print):
+    def __init__(self, gcode: str):
+        super().__init__(name="[cycle]", gcode=gcode, print_time_seconds=None)
 
-    def set_print_time_seconds(self, print_time_seconds) -> None:
-        self._print_time_seconds = print_time_seconds
+class OC_PausePrint(OC_Print):
+    def __init__(self, gcode: str):
+        super().__init__(name="[pause]", gcode=gcode, print_time_seconds=None)
 
 class OC_PrintQueue:
     def __init__(self):
@@ -109,31 +121,32 @@ class OC_PrintQueue:
     
     def add_print(self, print_data: OC_Print):
         self.prints.append(print_data)
-        print_time_seconds = print_data.get_print_time_seconds()
-        if print_time_seconds is None:
-            self._has_unknown_print_time = True
-        else:
-            self._total_print_time_seconds += int(print_time_seconds)
-        for filament_id, filament in print_data.get_filaments().items():
-            existing = self.filaments.get(filament_id)
-            if existing is None:
-                self.filaments[filament_id] = filament
-                continue
-            if existing != filament:
-                print(f"Error: filament id {filament_id} conflicts with a different filament definition.")
-                sys.exit(1)
+        if isinstance(print_data, OC_FilePrint):
+            print_time_seconds = print_data.get_print_time_seconds()
+            if print_time_seconds is None:
+                self._has_unknown_print_time = True
+            else:
+                self._total_print_time_seconds += int(print_time_seconds)
+            for filament_id, filament in print_data.get_filaments().items():
+                existing = self.filaments.get(filament_id)
+                if existing is None:
+                    self.filaments[filament_id] = filament
+                    continue
+                if existing != filament:
+                    print(f"Error: filament id {filament_id} conflicts with a different filament definition.")
+                    sys.exit(1)
 
-        for filament_id, usage in print_data.get_filament_usage().items():
-            existing_usage = self.filament_usage.get(filament_id)
-            if existing_usage is None:
-                self.filament_usage[filament_id] = usage
-                continue
-            if usage.get_grams() is not None:
-                prior = existing_usage.get_grams() or 0.0
-                existing_usage.set_grams(prior + usage.get_grams())
-            if usage.get_meters() is not None:
-                prior = existing_usage.get_meters() or 0.0
-                existing_usage.set_meters(prior + usage.get_meters())
+            for filament_id, usage in print_data.get_filament_usage().items():
+                existing_usage = self.filament_usage.get(filament_id)
+                if existing_usage is None:
+                    self.filament_usage[filament_id] = usage
+                    continue
+                if usage.get_grams() is not None:
+                    prior = existing_usage.get_grams() or 0.0
+                    existing_usage.set_grams(prior + usage.get_grams())
+                if usage.get_meters() is not None:
+                    prior = existing_usage.get_meters() or 0.0
+                    existing_usage.set_meters(prior + usage.get_meters())
 
     def get_prints(self) -> list[OC_Print]:
         return self.prints

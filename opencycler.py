@@ -2,15 +2,11 @@
 #!/usr/bin/env/python3
 import sys
 import argparse
-import zipfile
-import os
-import glob
-import tempfile
 from pathlib import Path
 
 from plate_cyclers.chitu import Chitu
 from plate_cyclers.PlateCycler import OC_PlateCycler
-from PrintData import OC_Print, OC_PrintQueue
+from PrintData import OC_CyclePrint, OC_FilePrint, OC_PausePrint, OC_PrintQueue
 
 acceptable_file_extensions = ['.3mf', '.gcode']
 
@@ -23,28 +19,32 @@ def verify_input_files(filenames: list[str]):
         if file.suffix not in acceptable_file_extensions:
             print(f'{filename} does not have a valid extension ({', '.join(acceptable_file_extensions)})')
 
-def load_files(filenames: list[str], ecosystem) -> OC_PrintQueue:
-    print_queue = OC_PrintQueue()
+def load_files(filenames: list[str], ecosystem) -> list[OC_FilePrint]:
+    print_data = []
     for filename in filenames:
-        print_queue.add_print(ecosystem.extract_file(filename))
+        print_data.append(ecosystem.extract_file(filename))
+    return print_data
+
+def build_print_queue(plate_cycler: OC_PlateCycler, print_data: list[OC_FilePrint], start_cycle: bool, skip_end_cycle: bool, insert_pause: bool) -> OC_PrintQueue:
+    print_queue = OC_PrintQueue()
+    if start_cycle:
+        print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
+        if insert_pause:
+            print_queue.add_print(OC_PausePrint(plate_cycler.get_pause_gcode()))
+    for index, file_print in enumerate(print_data):
+        print_queue.add_print(file_print)
+        if index < len(print_data) - 1:
+            print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
+            if insert_pause:
+                print_queue.add_print(OC_PausePrint(plate_cycler.get_pause_gcode()))
+    if not skip_end_cycle:
+        print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
     return print_queue
 
-def insert_cycles(plate_cycler: OC_PlateCycler, gcode_data: OC_PrintQueue, start_cycle: bool, skip_end_cycle: bool, insert_pause: bool) -> str:
+def build_gcode(print_queue: OC_PrintQueue) -> str:
     full_gcode = ""
-
-    if start_cycle:
-        full_gcode += plate_cycler.get_cycle_gcode(insert_pause)
-
-    prints = gcode_data.get_prints()
-    for gcode_file in prints[:-1]:
-        full_gcode += gcode_file.get_gcode()
-        full_gcode += plate_cycler.get_cycle_gcode(insert_pause)
-    
-    # Handle last iteration separately
-    full_gcode += prints[-1].get_gcode()
-    if not skip_end_cycle:
-        full_gcode += plate_cycler.get_cycle_gcode(insert_pause)
-
+    for print_item in print_queue.get_prints():
+        full_gcode += print_item.get_gcode()
     return full_gcode
 
 def _format_print_time(print_time_seconds) -> str:
@@ -61,17 +61,11 @@ def _format_print_time(print_time_seconds) -> str:
     return "".join(parts) if parts else "0s"
 
 
-def log_print_queue(print_queue: OC_PrintQueue, start_cycle: bool, skip_end_cycle: bool, insert_pause: bool) -> None:
+def log_print_queue(print_queue: OC_PrintQueue) -> None:
     tokens = []
-    if start_cycle:
-        tokens.append(("[cycle]", "cycle", None))
     prints = print_queue.get_prints()
-    for index, data in enumerate(prints):
+    for data in prints:
         tokens.append((data.get_name(), "print", data.get_print_time_seconds()))
-        if insert_pause and index < len(prints) - 1:
-            tokens.append(("[pause]", "pause", None))
-    if not skip_end_cycle:
-        tokens.append(("[cycle]", "cycle", None))
 
     line1 = " -> ".join([token[0] for token in tokens])
 
@@ -86,7 +80,7 @@ def log_print_queue(print_queue: OC_PrintQueue, start_cycle: bool, skip_end_cycl
                     time_label = f"|_{time_str}_{'_' * pad_len}|"
                 line2_parts.append(time_label)
             else:
-                line2_parts.append(" " * (len(label)+2))
+                line2_parts.append(" " * (len(label)))
         else:
             line2_parts.append(" " * (len(label)))
 
@@ -116,7 +110,7 @@ def log_filament(print_queue: OC_PrintQueue):
         meters = usage.get_meters()
         grams_str = f"{grams:.2f}" if grams is not None else "n/a"
         meters_str = f"{meters:.2f}" if meters is not None else "n/a"
-        print(f"{ams_id}: {filament.get_type()} {filament.get_color()} - {grams_str}g {meters_str}m")
+        print(f"{ams_id}: {filament.get_type()}\t{filament.get_color()}\t{grams_str}g\t{meters_str}m")
 
 def main():
     parser = argparse.ArgumentParser(prog='OpenCycler',
@@ -146,10 +140,11 @@ def main():
     filenames = args.files
     if args.loop > 1:
         filenames = filenames * args.loop
-    print_queue = load_files(filenames, plate_cycler.get_ecosystem())
+    print_data = load_files(filenames, plate_cycler.get_ecosystem())
+    print_queue = build_print_queue(plate_cycler, print_data, args.start_cycle, args.skip_end_cycle, args.pause)
 
-    gcode_file_data = insert_cycles(plate_cycler, print_queue, args.start_cycle, args.skip_end_cycle, args.pause)
-    log_print_queue(print_queue, args.start_cycle, args.skip_end_cycle, args.pause)
+    gcode_file_data = build_gcode(print_queue)
+    log_print_queue(print_queue)
     log_filament(print_queue)
 
     template_3mf = next((filename for filename in args.files if Path(filename).suffix == '.3mf'), None)

@@ -11,12 +11,15 @@ class OC_PlateCycler:
 
         self._ecosystem = ecosystem
     
-    def get_cycle_gcode(self, insert_pause: bool) -> str:
+    def get_cycle_gcode(self) -> str:
         ret = "\n"
         ret += self._cycle_gcode
-        if insert_pause:
-            ret += "\n"
-            ret += self._pause_gcode
+        ret += "\n"
+        return ret
+
+    def get_pause_gcode(self) -> str:
+        ret = "\n"
+        ret += self._pause_gcode
         ret += "\n"
         return ret
 

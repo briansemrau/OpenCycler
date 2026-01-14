@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ecosystems.Ecosystem import OC_Ecosystem
-from PrintData import OC_Filament, OC_FilamentUsage, OC_Print
+from PrintData import OC_Filament, OC_FilamentUsage, OC_FilePrint
 
 
 class BambuA1(OC_Ecosystem):
@@ -33,8 +33,8 @@ class BambuA1(OC_Ecosystem):
                     zipout.writestr(info, zipref.read(info.filename))
         print(f"\nBuilt {output_path}")
 
-    def extract_file(self, filename: str) -> OC_Print:
-        print_data = OC_Print()
+    def extract_file(self, filename: str) -> OC_FilePrint:
+        print_data = OC_FilePrint()
         print_data.set_name(Path(filename).name)
 
         with tempfile.TemporaryDirectory() as tempdirname:
