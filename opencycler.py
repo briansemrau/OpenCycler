@@ -6,7 +6,7 @@ from pathlib import Path
 
 from plate_cyclers.chitu import Chitu
 from plate_cyclers.PlateCycler import OC_PlateCycler
-from PrintData import OC_CyclePrint, OC_FilePrint, OC_PausePrint, OC_PrintQueue
+from PrintData import OC_CyclePrint, OC_FilePrint, OC_LevelPrint, OC_PausePrint, OC_PrintQueue
 
 acceptable_file_extensions = ['.3mf', '.gcode']
 
@@ -32,6 +32,8 @@ def build_print_queue(plate_cycler: OC_PlateCycler, print_data: list[OC_FilePrin
         if insert_pause:
             print_queue.add_print(OC_PausePrint(plate_cycler.get_pause_gcode()))
     for index, file_print in enumerate(print_data):
+        bed_level_gcode = plate_cycler.get_bed_level_gcode(file_print.get_bed_level_temp())
+        print_queue.add_print(OC_LevelPrint(bed_level_gcode))
         print_queue.add_print(file_print)
         if index < len(print_data) - 1:
             print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))

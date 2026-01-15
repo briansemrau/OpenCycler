@@ -88,6 +88,7 @@ class OC_FilePrint(OC_Print):
         super().__init__()
         self._filaments = {}
         self._filament_usage = {}
+        self._bed_level_temp = None
 
     def get_filaments(self) -> dict[str, OC_Filament]:
         return self._filaments
@@ -103,6 +104,12 @@ class OC_FilePrint(OC_Print):
         for filament in filament_usage:
             self._filament_usage[filament.get_ams_id()] = filament
 
+    def get_bed_level_temp(self):
+        return self._bed_level_temp
+
+    def set_bed_level_temp(self, bed_level_temp) -> None:
+        self._bed_level_temp = bed_level_temp
+
 class OC_CyclePrint(OC_Print):
     def __init__(self, gcode: str):
         super().__init__(name="[cycle]", gcode=gcode, print_time_seconds=None)
@@ -110,6 +117,10 @@ class OC_CyclePrint(OC_Print):
 class OC_PausePrint(OC_Print):
     def __init__(self, gcode: str):
         super().__init__(name="[pause]", gcode=gcode, print_time_seconds=None)
+
+class OC_LevelPrint(OC_Print):
+    def __init__(self, gcode: str):
+        super().__init__(name="[level]", gcode=gcode, print_time_seconds=None)
 
 class OC_PrintQueue:
     def __init__(self):

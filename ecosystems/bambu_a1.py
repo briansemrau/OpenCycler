@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 import sys
 import tempfile
@@ -64,6 +65,12 @@ class BambuA1(OC_Ecosystem):
                 print_data.set_filaments(filaments)
                 print_data.set_filament_usage(filament_usage)
 
+            project_settings_path = metadata_dir / "project_settings.config"
+            if project_settings_path.exists():
+                bed_temp = self._extract_bed_level_temp(project_settings_path)
+                if bed_temp is not None:
+                    print_data.set_bed_level_temp(bed_temp)
+
         return print_data
 
     def _extract_print_time_seconds(self, gcode_data: str):
@@ -105,3 +112,16 @@ class BambuA1(OC_Ecosystem):
             filament_usage.append(OC_FilamentUsage(ams_id, grams, meters))
 
         return filaments, filament_usage
+
+    def _extract_bed_level_temp(self, project_settings_path: Path):
+        try:
+            with open(project_settings_path, "r") as settings_file:
+                settings = json.load(settings_file)
+        except (OSError, json.JSONDecodeError):
+            return None
+        temps = settings.get("textured_plate_temp_initial_layer")
+        if isinstance(temps, list) and temps:
+            return temps[0]
+        if isinstance(temps, str):
+            return temps
+        return None
