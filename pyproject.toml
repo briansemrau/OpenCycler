@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opencycler"
+version = "0.1.0"
+description = "Combine multiple print files for plate cycling"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "Pillow",
+]
+
+[project.scripts]
+opencycler = "opencycler:main"
+
+[tool.setuptools]
+py-modules = ["opencycler", "PrintData"]
+packages = ["plate_cyclers"]
