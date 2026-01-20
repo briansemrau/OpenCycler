@@ -25,10 +25,12 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ecosystems.Ecosystem import OC_Ecosystem
-from PrintData import OC_Filament, OC_FilamentUsage, OC_FilePrint
+from OC_print_data import OC_Filament, OC_FilamentUsage, OC_FilePrint
 
 
 class BambuA1(OC_Ecosystem):
+    acceptable_file_extensions = [".3mf"]
+
     def build_output(self, template_path: str, gcode_data: str, output_path: str) -> None:
         if not output_path:
             output_path = "output.3mf"

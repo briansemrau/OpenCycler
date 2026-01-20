@@ -7,11 +7,19 @@ OpenCycler stitches multiple print files into a single run with optional cycling
 
 Installation and Usage
 ----------------------
-Install script will be documented here once finalized.
-
-Quick usage (current):
+Run the installer from the project root:
 ```
-python3 opencycler.py [options] file1.3mf file2.3mf ...
+./install.sh
+```
+
+Then run from anywhere:
+```
+opencycler [options] file1.3mf file2.3mf ...
+```
+
+Direct Python usage:
+```
+python3 src/opencycler.py [options] file1.3mf file2.3mf ...
 ```
 
 Arguments

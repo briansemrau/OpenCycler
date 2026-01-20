@@ -16,5 +16,6 @@ dependencies = [
 opencycler = "opencycler:main"
 
 [tool.setuptools]
-py-modules = ["opencycler", "PrintData"]
-packages = ["plate_cyclers"]
+package-dir = {"" = "src"}
+py-modules = ["opencycler", "OC_build", "OC_print_data"]
+packages = ["ecosystems", "plate_cyclers", "utils"]
