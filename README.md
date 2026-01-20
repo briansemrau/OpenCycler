@@ -41,7 +41,7 @@ Supported Plate Cyclers
 -----------------------
 | Plate Cycler | Notes |
 | --- | --- |
-| Chitu | `gcode/chitu/*` templates |
+| Chitu | `src/gcode/chitu/*` templates |
 
 Code Components
 ---------------

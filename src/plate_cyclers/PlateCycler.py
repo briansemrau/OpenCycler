@@ -18,18 +18,23 @@
 
 DEFAULT_BED_LEVEL_TEMP = 50
 
+from importlib.resources import files
+
+GCODE_ROOT = files("gcode")
+
+
 class OC_PlateCycler:
     def __init__(self, name, ecosystem):
         self._cycle_gcode = ""
-        with open(f"gcode/{name}/change-plate.gcode", 'r') as file:
+        with (GCODE_ROOT / name / "change-plate.gcode").open("r") as file:
             self._cycle_gcode = file.read()
 
         self._pause_gcode = ""
-        with open(f"gcode/{name}/pause.gcode", 'r') as file:
+        with (GCODE_ROOT / name / "pause.gcode").open("r") as file:
             self._pause_gcode = file.read()
 
         self._bed_level_gcode = ""
-        with open(f"gcode/{name}/bed-level.gcode", 'r') as file:
+        with (GCODE_ROOT / name / "bed-level.gcode").open("r") as file:
             self._bed_level_gcode = file.read()
 
         self._ecosystem = ecosystem
