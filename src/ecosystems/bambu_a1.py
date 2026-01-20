@@ -53,9 +53,9 @@ class BambuA1(OC_Ecosystem):
                     zipout.writestr(info, zipref.read(info.filename))
         print(f"\nBuilt {output_path}")
 
-    def extract_file(self, filename: str) -> OC_FilePrint:
-        print_data = OC_FilePrint()
-        print_data.set_name(Path(filename).name)
+    def extract_file(self, filename: str) -> list[OC_FilePrint]:
+        base_name = Path(filename).stem
+        print_data = []
 
         with tempfile.TemporaryDirectory() as tempdirname:
             with zipfile.ZipFile(filename, "r") as zipref:
@@ -67,28 +67,37 @@ class BambuA1(OC_Ecosystem):
                 gcode_files = list(metadata_dir.rglob("*.gcode"))
 
             if len(gcode_files) > 1:
-                print("Error: More than one gcode file found in Metadata.")
-                sys.exit(1)
+                gcode_files = sorted(gcode_files)
             if len(gcode_files) == 0:
                 print("Error: No gcode file found in Metadata.")
                 sys.exit(1)
 
-            with open(gcode_files[0], "r") as gcode_file:
-                gcode_data = gcode_file.read()
-                print_data.set_gcode(gcode_data)
-                print_data.set_print_time_seconds(self._extract_print_time_seconds(gcode_data))
+            for gcode_path in gcode_files:
+                gcode_entry = OC_FilePrint()
+                plate_num = self._extract_plate_number(gcode_path.name)
+                if plate_num is not None:
+                    gcode_entry.set_name(f"{base_name}_plate{plate_num}")
+                else:
+                    gcode_entry.set_name(f"{base_name}_{gcode_path.stem}")
+                with open(gcode_path, "r") as gcode_file:
+                    gcode_data = gcode_file.read()
+                    gcode_entry.set_gcode(gcode_data)
+                    gcode_entry.set_print_time_seconds(self._extract_print_time_seconds(gcode_data))
+                print_data.append(gcode_entry)
 
             slice_info_path = metadata_dir / "slice_info.config"
             if slice_info_path.exists():
                 filaments, filament_usage = self._extract_filament_info(slice_info_path)
-                print_data.set_filaments(filaments)
-                print_data.set_filament_usage(filament_usage)
+                for gcode_entry in print_data:
+                    gcode_entry.set_filaments(filaments)
+                    gcode_entry.set_filament_usage(filament_usage)
 
             project_settings_path = metadata_dir / "project_settings.config"
             if project_settings_path.exists():
                 bed_temp = self._extract_bed_level_temp(project_settings_path)
                 if bed_temp is not None:
-                    print_data.set_bed_level_temp(bed_temp)
+                    for gcode_entry in print_data:
+                        gcode_entry.set_bed_level_temp(bed_temp)
 
         return print_data
 
@@ -144,3 +153,9 @@ class BambuA1(OC_Ecosystem):
         if isinstance(temps, str):
             return temps
         return None
+
+    def _extract_plate_number(self, filename: str):
+        match = re.search(r"plate_(\d+)", filename, re.IGNORECASE)
+        if not match:
+            return None
+        return match.group(1)

@@ -38,5 +38,5 @@ def verify_input_files(filenames: list[str], ecosystem: OC_Ecosystem) -> None:
 def load_files(filenames: list[str], ecosystem: OC_Ecosystem) -> list[OC_FilePrint]:
     print_data = []
     for filename in filenames:
-        print_data.append(ecosystem.extract_file(filename))
+        print_data.extend(ecosystem.extract_file(filename))
     return print_data
