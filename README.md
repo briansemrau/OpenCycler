@@ -57,6 +57,12 @@ Contributing
 Contributions are welcome, especially new ecosystems and plate cyclers.
 Please include a short description, sample files if relevant, and a quick test note.
 
+Safety Disclaimer
+-----------------
+OpenCycler is provided as-is with no warranty. You are responsible for reviewing
+generated gcode and operating hardware safely. Always supervise prints, follow
+your machine's safety guidance, and stop the process if anything looks unsafe.
+
 License
 -------
 Copyright (C) 2026 Aaron Chambers.
