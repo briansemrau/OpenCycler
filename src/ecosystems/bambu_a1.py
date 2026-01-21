@@ -25,32 +25,61 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from ecosystems.Ecosystem import OC_Ecosystem
-from OC_print_data import OC_Filament, OC_FilamentUsage, OC_FilePrint
+from OC_print_data import OC_Filament, OC_FilamentUsage, OC_FilePrint, OC_PrintQueue
+from utils.OC_image import generate_tile_thumbnail
 
 
 class BambuA1(OC_Ecosystem):
     acceptable_file_extensions = [".3mf"]
 
-    def build_output(self, template_path: str, gcode_data: str, output_path: str) -> None:
+    def build_output(self, template_path: str, gcode_data: str, output_path: str, print_queue: OC_PrintQueue) -> None:
         if not output_path:
             output_path = "output.3mf"
         gcode_bytes = gcode_data.encode("utf-8")
         gcode_md5 = hashlib.md5(gcode_bytes).hexdigest().encode("ascii")
-        with zipfile.ZipFile(template_path, "r") as zipref:
+        with tempfile.TemporaryDirectory() as tempdirname:
+            with zipfile.ZipFile(template_path, "r") as zipref:
+                zipref.extractall(tempdirname)
+
+            metadata_dir = Path(tempdirname) / "Metadata"
+            if metadata_dir.exists():
+                for gcode_path in metadata_dir.rglob("*.gcode"):
+                    if gcode_path.name != "plate_1.gcode":
+                        gcode_path.unlink()
+                for md5_path in metadata_dir.rglob("*.gcode.md5"):
+                    if md5_path.name != "plate_1.gcode.md5":
+                        md5_path.unlink()
+
+                (metadata_dir / "plate_1.gcode").write_bytes(gcode_bytes)
+                (metadata_dir / "plate_1.gcode.md5").write_bytes(gcode_md5)
+
+                tile_image = generate_tile_thumbnail(print_queue)
+                if tile_image:
+                    plate_numbers = set()
+                    for gcode_path in metadata_dir.rglob("plate_*.gcode"):
+                        plate_num = self._extract_plate_number(gcode_path.name)
+                        if plate_num is not None:
+                            plate_numbers.add(plate_num)
+
+                    png_targets = []
+                    for png_path in metadata_dir.rglob("plate*.png"):
+                        plate_num = self._extract_plate_number(png_path.name)
+                        if plate_num in plate_numbers:
+                            png_targets.append(png_path)
+
+                    if png_targets:
+                        for png_path in png_targets:
+                            tile_image.save(png_path, format="PNG")
+                    else:
+                        print("No plate images found to update.")
+
             with zipfile.ZipFile(output_path, "w") as zipout:
-                for info in zipref.infolist():
-                    if info.filename == "Metadata/plate_1.gcode":
-                        zipout.writestr(info, gcode_bytes)
+                for path in Path(tempdirname).rglob("*"):
+                    arcname = path.relative_to(tempdirname).as_posix()
+                    if path.is_dir():
+                        zipout.writestr(f"{arcname}/", b"")
                         continue
-                    if info.filename == "Metadata/plate_1.gcode.md5":
-                        zipout.writestr(info, gcode_md5)
-                        continue
-                    if info.filename.endswith(".gcode") or info.filename.endswith(".gcode.md5"):
-                        continue
-                    if info.is_dir():
-                        zipout.writestr(info, b"")
-                        continue
-                    zipout.writestr(info, zipref.read(info.filename))
+                    zipout.write(path, arcname)
         print(f"\nBuilt {output_path}")
 
     def extract_file(self, filename: str) -> list[OC_FilePrint]:
@@ -69,35 +98,39 @@ class BambuA1(OC_Ecosystem):
             if len(gcode_files) > 1:
                 gcode_files = sorted(gcode_files)
             if len(gcode_files) == 0:
-                print("Error: No gcode file found in Metadata.")
+                print(f"Error: {filename} no gcode file found in Metadata.")
                 sys.exit(1)
 
             for gcode_path in gcode_files:
-                gcode_entry = OC_FilePrint()
+                file_print = OC_FilePrint()
                 plate_num = self._extract_plate_number(gcode_path.name)
                 if plate_num is not None:
-                    gcode_entry.set_name(f"{base_name}_plate{plate_num}")
+                    file_print.set_name(f"{base_name}_plate{plate_num}")
                 else:
-                    gcode_entry.set_name(f"{base_name}_{gcode_path.stem}")
+                    file_print.set_name(f"{base_name}_{gcode_path.stem}")
                 with open(gcode_path, "r") as gcode_file:
                     gcode_data = gcode_file.read()
-                    gcode_entry.set_gcode(gcode_data)
-                    gcode_entry.set_print_time_seconds(self._extract_print_time_seconds(gcode_data))
-                print_data.append(gcode_entry)
+                    file_print.set_gcode(gcode_data)
+                    file_print.set_print_time_seconds(self._extract_print_time_seconds(gcode_data))
+                potential_image_name = f"{Path(gcode_path.name).stem}.png"
+                image_path = metadata_dir / potential_image_name
+                if image_path.exists():
+                    file_print.set_image(image_path.read_bytes())
+                print_data.append(file_print)
 
             slice_info_path = metadata_dir / "slice_info.config"
             if slice_info_path.exists():
                 filaments, filament_usage = self._extract_filament_info(slice_info_path)
-                for gcode_entry in print_data:
-                    gcode_entry.set_filaments(filaments)
-                    gcode_entry.set_filament_usage(filament_usage)
+                for file_print in print_data:
+                    file_print.set_filaments(filaments)
+                    file_print.set_filament_usage(filament_usage)
 
             project_settings_path = metadata_dir / "project_settings.config"
             if project_settings_path.exists():
                 bed_temp = self._extract_bed_level_temp(project_settings_path)
                 if bed_temp is not None:
-                    for gcode_entry in print_data:
-                        gcode_entry.set_bed_level_temp(bed_temp)
+                    for file_print in print_data:
+                        file_print.set_bed_level_temp(bed_temp)
 
         return print_data
 
@@ -155,7 +188,7 @@ class BambuA1(OC_Ecosystem):
         return None
 
     def _extract_plate_number(self, filename: str):
-        match = re.search(r"plate_(\d+)", filename, re.IGNORECASE)
+        match = re.search(r"plate_(?:no_light_)?(\d+)", filename, re.IGNORECASE)
         if not match:
             return None
         return match.group(1)

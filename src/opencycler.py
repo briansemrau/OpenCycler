@@ -64,7 +64,7 @@ def main():
     if not template_3mf:
         print('No .3mf input provided; cannot build output.3mf.')
         sys.exit(1)
-    plate_cycler.get_ecosystem().build_output(template_3mf, gcode_file_data, args.output)
+    plate_cycler.get_ecosystem().build_output(template_3mf, gcode_file_data, args.output, print_queue)
     print("")
 
 if __name__ == "__main__":

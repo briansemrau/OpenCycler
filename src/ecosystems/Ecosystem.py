@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-from OC_print_data import OC_FilePrint
+from OC_print_data import OC_FilePrint, OC_PrintQueue
 
 
 class OC_Ecosystem:
     acceptable_file_extensions: list[str] = []
 
-    def build_output(self, template_path: str, gcode_data: str, output_path: str) -> None:
+    def build_output(self, template_path: str, gcode_data: str, output_path: str, print_queue: OC_PrintQueue) -> None:
         raise NotImplementedError("build_output must be implemented by subclasses.")
 
     def extract_file(self, filename: str) -> list[OC_FilePrint]:
