@@ -33,37 +33,19 @@ def _format_print_time(print_time_seconds) -> str:
 
 
 def log_print_queue(print_queue: OC_PrintQueue) -> None:
-    tokens = []
     prints = print_queue.get_prints()
+    print(" - Start")
+    print(" |")
     for data in prints:
-        tokens.append((data.get_name(), "print", data.get_print_time_seconds()))
-
-    line1 = " -> ".join([token[0] for token in tokens])
-
-    line2_parts = []
-    for label, kind, print_time in tokens:
-        if kind == "print":
-            time_str = _format_print_time(print_time)
-            if time_str:
-                time_label = f"|_{time_str}_|"
-                if len(time_label) < len(label):
-                    pad_len = len(label) - len(time_label)
-                    time_label = f"|_{time_str}_{'_' * pad_len}|"
-                line2_parts.append(time_label)
-            else:
-                line2_parts.append(" " * (len(label)))
+        time_str = _format_print_time(data.get_print_time_seconds())
+        if time_str:
+            print(f" - {data.get_name()} [{time_str}]")
         else:
-            line2_parts.append(" " * (len(label)))
-
-    line2 = "    ".join(line2_parts)
-
-    print(line1)
-    if line2.strip():
-        print(line2)
+            print(f" - {data.get_name()}")
+        print(" |")
+    print(" - End")
     print()
-
     total_seconds = print_queue.get_total_print_time_seconds()
-
     if print_queue.has_unknown_print_time():
         total_str = _format_print_time(total_seconds) if total_seconds else "n/a"
         print(f"Total duration (known): {total_str}")

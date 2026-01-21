@@ -26,14 +26,12 @@ from OC_print_data import OC_PrintQueue
 
 def generate_tile_thumbnail(print_queue: OC_PrintQueue) -> Image.Image | None:
     images: list[Image.Image] = []
-    print(len(print_queue.prints))
     for print_item in print_queue.get_prints():
         raw_image = print_item.get_image()
         if not raw_image:
             continue
         try:
             with Image.open(io.BytesIO(raw_image)) as opened:
-                print(f"appending image for {print_item.get_name()}")
                 images.append(opened.copy())
         except OSError:
             continue
