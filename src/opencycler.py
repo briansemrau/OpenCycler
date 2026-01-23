@@ -25,20 +25,40 @@ from plate_cyclers.chitu import Chitu
 from OC_build import build_gcode, build_print_queue
 from utils.OC_files import load_files, verify_input_files
 from utils.OC_logger import log_summary
+from utils.OC_cycler_manager import OC_CyclerManager
+from utils.OC_state import OC_State
 
 def main():
     parser = argparse.ArgumentParser(prog='OpenCycler',
         description='Combine multiple print files',
-        epilog='epilog')
+        epilog='')
 
     parser.add_argument('-s', '--start-cycle', action='store_true', help="Cycle at the beginning of the print")
     parser.add_argument('-e', '--skip-end-cycle', action='store_true', help="Skip cycle at the end of the print")
     parser.add_argument('-p', '--pause', action='store_true', help="Whether or not to pause between jobs")
     parser.add_argument('-o', '--output', help="Output file name", default=None)
     parser.add_argument('-l', '--loop', type=int, default=1, help="Repeat the full file list N times (>=1)")
+    parser.add_argument('--configure', action='store_true', help="Configure default plate cycler/ecosystem")
+    parser.add_argument('--reset-config', action='store_true', help="Reset saved configuration")
     parser.add_argument('files', nargs=argparse.REMAINDER, help="List of gcode/3mf files to print")
 
     args = parser.parse_args()
+    cycler_manager = OC_CyclerManager()
+
+    # Register cycler here
+    cycler_manager.register_cycler(Chitu())
+
+    # End cycler registration
+
+    if args.reset_config:
+        OC_State.reset()
+        print("Configuration reset.")
+        sys.exit(0)
+
+    if args.configure:
+        OC_State._prompt_and_save(cycler_manager)
+        print("Configuration saved.")
+        sys.exit(0)
 
     if not args.files:
         parser.print_help()
@@ -48,13 +68,18 @@ def main():
         sys.exit(1)
     print("")
     
-    plate_cycler = Chitu()
+
+    state = OC_State.load_or_prompt(cycler_manager)
+    plate_cycler, ecosystem = cycler_manager.resolve(state.cycler_name, state.ecosystem_name)
+    if not plate_cycler or not ecosystem:
+        print("Error: configured plate cycler/ecosystem is not available.")
+        sys.exit(1)
     
-    verify_input_files(args.files, plate_cycler.get_ecosystem())
-    filenames = args.files
-    if args.loop > 1:
-        filenames = filenames * args.loop
-    print_data = load_files(filenames, plate_cycler.get_ecosystem())
+    if not verify_input_files(args.files, ecosystem):
+        sys.exit(1)
+    filenames = args.files * args.loop
+
+    print_data = load_files(filenames, ecosystem)
     print_queue = build_print_queue(plate_cycler, print_data, args.start_cycle, args.skip_end_cycle, args.pause)
 
     gcode_file_data = build_gcode(print_queue)
@@ -64,7 +89,7 @@ def main():
     if not template_3mf:
         print('No .3mf input provided; cannot build output.3mf.')
         sys.exit(1)
-    plate_cycler.get_ecosystem().build_output(template_3mf, gcode_file_data, args.output, print_queue)
+    ecosystem.build_output(template_3mf, gcode_file_data, args.output, print_queue)
     print("")
 
 if __name__ == "__main__":

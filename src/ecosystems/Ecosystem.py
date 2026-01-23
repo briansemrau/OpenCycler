@@ -19,10 +19,15 @@ from OC_print_data import OC_FilePrint, OC_PrintQueue
 
 
 class OC_Ecosystem:
-    acceptable_file_extensions: list[str] = []
+    def __init__(self, name: str, acceptable_file_extensions: list[str]):
+        self._name = name
+        self.acceptable_file_extensions = acceptable_file_extensions
 
     def build_output(self, template_path: str, gcode_data: str, output_path: str, print_queue: OC_PrintQueue) -> None:
         raise NotImplementedError("build_output must be implemented by subclasses.")
 
     def extract_file(self, filename: str) -> list[OC_FilePrint]:
         raise NotImplementedError("extract_file must be implemented by subclasses.")
+
+    def get_name(self) -> str:
+        return self._name

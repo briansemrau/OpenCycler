@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-import sys
 from pathlib import Path
 
 from ecosystems.Ecosystem import OC_Ecosystem
@@ -28,11 +27,12 @@ def verify_input_files(filenames: list[str], ecosystem: OC_Ecosystem) -> None:
         file = Path(filename)
         if not file.exists() or not file.is_file():
             print(f"{filename} is not a valid file.")
-            sys.exit(1)
+            return False
         if file.suffix not in acceptable_file_extensions:
             allowed = ", ".join(acceptable_file_extensions)
             print(f"{filename} does not have a valid extension ({allowed}).")
-            sys.exit(1)
+            return False
+    return True
 
 
 def load_files(filenames: list[str], ecosystem: OC_Ecosystem) -> list[OC_FilePrint]:

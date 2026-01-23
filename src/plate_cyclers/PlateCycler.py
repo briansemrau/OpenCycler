@@ -20,11 +20,14 @@ DEFAULT_BED_LEVEL_TEMP = 50
 
 from importlib.resources import files
 
+from ecosystems.Ecosystem import OC_Ecosystem
+
 GCODE_ROOT = files("gcode")
 
 
 class OC_PlateCycler:
-    def __init__(self, name, ecosystem):
+    def __init__(self, name: str, compatible_ecosystems: list[OC_Ecosystem]):
+        self._name = name
         self._cycle_gcode = ""
         with (GCODE_ROOT / name / "change-plate.gcode").open("r") as file:
             self._cycle_gcode = file.read()
@@ -37,7 +40,9 @@ class OC_PlateCycler:
         with (GCODE_ROOT / name / "bed-level.gcode").open("r") as file:
             self._bed_level_gcode = file.read()
 
-        self._ecosystem = ecosystem
+        self._compatible_ecosystems = {}
+        for ecosystem in compatible_ecosystems:
+            self._compatible_ecosystems[ecosystem.get_name()] = ecosystem
     
     def get_cycle_gcode(self) -> str:
         ret = "\n"
@@ -61,5 +66,11 @@ class OC_PlateCycler:
         ret += "\n"
         return ret
 
-    def get_ecosystem(self):
-        return self._ecosystem
+    def get_name(self) -> str:
+        return self._name
+
+    def get_compatible_ecosystems(self) -> list[OC_Ecosystem]:
+        return list(self._compatible_ecosystems.values())
+
+    def get_ecosystem(self, ecosystem_name: str) -> OC_Ecosystem | None:
+        return self._compatible_ecosystems.get(ecosystem_name)

@@ -30,48 +30,34 @@ from utils.OC_image import generate_tile_thumbnail
 
 
 class BambuA1(OC_Ecosystem):
-    acceptable_file_extensions = [".3mf"]
+    def __init__(self):
+        super().__init__("bambu_a1", [".3mf"])
 
     def build_output(self, template_path: str, gcode_data: str, output_path: str, print_queue: OC_PrintQueue) -> None:
         if not output_path:
             output_path = "output.3mf"
         gcode_bytes = gcode_data.encode("utf-8")
         gcode_md5 = hashlib.md5(gcode_bytes).hexdigest().encode("ascii")
-        with tempfile.TemporaryDirectory() as tempdirname:
-            with zipfile.ZipFile(template_path, "r") as zipref:
-                zipref.extractall(tempdirname)
 
+        with self._extract_template_dir(template_path) as tempdirname:
             metadata_dir = Path(tempdirname) / "Metadata"
-            if metadata_dir.exists():
-                for gcode_path in metadata_dir.rglob("*.gcode"):
-                    if gcode_path.name != "plate_1.gcode":
-                        gcode_path.unlink()
-                for md5_path in metadata_dir.rglob("*.gcode.md5"):
-                    if md5_path.name != "plate_1.gcode.md5":
-                        md5_path.unlink()
+            if not metadata_dir.exists():
+                print("Error: Metadata directory missing in template.")
+                sys.exit(1)
 
-                (metadata_dir / "plate_1.gcode").write_bytes(gcode_bytes)
-                (metadata_dir / "plate_1.gcode.md5").write_bytes(gcode_md5)
+            for gcode_path in metadata_dir.rglob("*.gcode"):
+                if gcode_path.name != "plate_1.gcode":
+                    gcode_path.unlink()
+            for md5_path in metadata_dir.rglob("*.gcode.md5"):
+                if md5_path.name != "plate_1.gcode.md5":
+                    md5_path.unlink()
 
-                tile_image = generate_tile_thumbnail(print_queue)
-                if tile_image:
-                    plate_numbers = set()
-                    for gcode_path in metadata_dir.rglob("plate_*.gcode"):
-                        plate_num = self._extract_plate_number(gcode_path.name)
-                        if plate_num is not None:
-                            plate_numbers.add(plate_num)
+            (metadata_dir / "plate_1.gcode").write_bytes(gcode_bytes)
+            (metadata_dir / "plate_1.gcode.md5").write_bytes(gcode_md5)
 
-                    png_targets = []
-                    for png_path in metadata_dir.rglob("plate*.png"):
-                        plate_num = self._extract_plate_number(png_path.name)
-                        if plate_num in plate_numbers:
-                            png_targets.append(png_path)
-
-                    if png_targets:
-                        for png_path in png_targets:
-                            tile_image.save(png_path, format="PNG")
-                    else:
-                        print("No plate images found to update.")
+            tile_image = generate_tile_thumbnail(print_queue)
+            if tile_image:
+                self._set_plate_images(metadata_dir, tile_image)
 
             with zipfile.ZipFile(output_path, "w") as zipout:
                 for path in Path(tempdirname).rglob("*"):
@@ -81,6 +67,32 @@ class BambuA1(OC_Ecosystem):
                         continue
                     zipout.write(path, arcname)
         print(f"\nBuilt {output_path}")
+
+    def _extract_template_dir(self, template_path: str):
+        tempdir = tempfile.TemporaryDirectory()
+        with zipfile.ZipFile(template_path, "r") as zipref:
+            zipref.extractall(tempdir.name)
+        return tempdir
+
+    def _set_plate_images(self, metadata_dir: Path, tile_image) -> None:
+        plate_numbers = set()
+        for gcode_path in metadata_dir.rglob("plate_*.gcode"):
+            plate_num = self._extract_plate_number(gcode_path.name)
+            if plate_num is not None:
+                plate_numbers.add(plate_num)
+
+        png_targets = []
+        for png_path in metadata_dir.rglob("plate*.png"):
+            plate_num = self._extract_plate_number(png_path.name)
+            if plate_num in plate_numbers:
+                png_targets.append(png_path)
+
+        if png_targets:
+            for png_path in png_targets:
+                tile_image.save(png_path, format="PNG")
+        else:
+            print("No plate images found to update.")
+
 
     def extract_file(self, filename: str) -> list[OC_FilePrint]:
         base_name = Path(filename).stem
