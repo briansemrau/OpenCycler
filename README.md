@@ -1,6 +1,6 @@
 OpenCycler
 ==========
-![OpenCycler](path/to/your.svg)
+![OpenCycler](icon.svg)
 
 TL;DR
 -----
