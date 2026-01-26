@@ -1,5 +1,6 @@
 OpenCycler
 ==========
+![OpenCycler](path/to/your.svg)
 
 TL;DR
 -----
@@ -64,6 +65,8 @@ Contributing
 ------------
 Contributions are welcome, especially new ecosystems and plate cyclers.
 Please include a short description, sample files if relevant, and a quick test note.
+
+If you are supporting a new cycler make sure they are properly registered in opencycler.py, and that the ecosystem has proper directories in `template_output/` and `gcode/`
 
 Safety Disclaimer
 -----------------
