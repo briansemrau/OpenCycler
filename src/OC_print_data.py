@@ -175,6 +175,12 @@ class OC_PrintQueue:
                 if usage.get_meters() is not None:
                     prior = existing_usage.get_meters() or 0.0
                     existing_usage.set_meters(prior + usage.get_meters())
+    
+    def generate_gcode(self) -> str:
+        full_gcode = ""
+        for print_item in self.prints:
+            full_gcode += print_item.get_gcode()
+        return full_gcode
 
     def get_prints(self) -> list[OC_Print]:
         return self.prints

@@ -42,10 +42,3 @@ def build_print_queue(
     if not skip_end_cycle:
         print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
     return print_queue
-
-
-def build_gcode(print_queue: OC_PrintQueue) -> str:
-    full_gcode = ""
-    for print_item in print_queue.get_prints():
-        full_gcode += print_item.get_gcode()
-    return full_gcode

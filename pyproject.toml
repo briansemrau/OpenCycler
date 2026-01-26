@@ -18,8 +18,17 @@ opencycler = "opencycler:main"
 [tool.setuptools]
 package-dir = {"" = "src"}
 py-modules = ["opencycler", "OC_build", "OC_print_data"]
-packages = ["ecosystems", "plate_cyclers", "utils", "gcode"]
+packages = [
+  "ecosystems",
+  "ecosystems.bambu_a1",
+  "plate_cyclers",
+  "utils",
+  "gcode",
+  "template_output",
+  "template_output.bambu_a1",
+]
 include-package-data = true
 
 [tool.setuptools.package-data]
 gcode = ["**/*.gcode"]
+template_output = ["**/*"]

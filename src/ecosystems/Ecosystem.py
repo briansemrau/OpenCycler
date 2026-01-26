@@ -23,7 +23,7 @@ class OC_Ecosystem:
         self._name = name
         self.acceptable_file_extensions = acceptable_file_extensions
 
-    def build_output(self, template_path: str, gcode_data: str, output_path: str, print_queue: OC_PrintQueue) -> None:
+    def build_output(self, gcode_data: str, output_path: str, print_queue: OC_PrintQueue) -> None:
         raise NotImplementedError("build_output must be implemented by subclasses.")
 
     def extract_file(self, filename: str) -> list[OC_FilePrint]:

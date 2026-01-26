@@ -22,7 +22,7 @@ import argparse
 from pathlib import Path
 
 from plate_cyclers.chitu import Chitu
-from OC_build import build_gcode, build_print_queue
+from OC_build import build_print_queue
 from utils.OC_files import load_files, verify_input_files
 from utils.OC_logger import log_summary
 from utils.OC_cycler_manager import OC_CyclerManager
@@ -82,14 +82,9 @@ def main():
     print_data = load_files(filenames, ecosystem)
     print_queue = build_print_queue(plate_cycler, print_data, args.start_cycle, args.skip_end_cycle, args.pause)
 
-    gcode_file_data = build_gcode(print_queue)
     log_summary(print_queue)
 
-    template_3mf = next((filename for filename in args.files if Path(filename).suffix == '.3mf'), None)
-    if not template_3mf:
-        print('No .3mf input provided; cannot build output.3mf.')
-        sys.exit(1)
-    ecosystem.build_output(template_3mf, gcode_file_data, args.output, print_queue)
+    ecosystem.build_output(print_queue, args.output)
     print("")
 
 if __name__ == "__main__":
