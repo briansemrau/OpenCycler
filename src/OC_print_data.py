@@ -21,6 +21,7 @@ class OC_Filament:
         self._ams_id = ams_id
         self._type = filament_type
         self._color = color
+        self._settings_id = ""
 
     def get_ams_id(self) -> str:
         return self._ams_id
@@ -39,11 +40,18 @@ class OC_Filament:
 
     def set_color(self, color: str) -> None:
         self._color = color
+
+    def get_settings_id(self) -> str:
+        return self._settings_id
+
+    def set_settings_id(self, settings_id: str) -> None:
+        self._settings_id = settings_id
     
     def __eq__(self, other):
         return self.get_ams_id() == other.get_ams_id() and \
         self.get_type() == other.get_type() and \
-        self.get_color() == other.get_color()
+        self.get_color() == other.get_color() and \
+        self.get_settings_id() == other.get_settings_id()
 
 class OC_FilamentUsage:
     def __init__(self, ams_id: str = "", grams: float | None = None, meters: float | None = None):

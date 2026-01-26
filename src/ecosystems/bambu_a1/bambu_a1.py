@@ -28,10 +28,13 @@ from .metadata import (
     find_plate_gcodes,
     plate_number_from_filename,
     read_gcode,
+    read_filament_settings_ids,
     read_plate_image,
     read_project_settings,
     read_slice_info,
     set_plate_images,
+    update_slice_info_filaments,
+    update_project_settings_filament_ids,
 )
 
 
@@ -56,6 +59,8 @@ class BambuA1(OC_Ecosystem):
                 tile_image = generate_tile_thumbnail(print_queue)
                 if tile_image:
                     set_plate_images(metadata_dir, tile_image)
+                update_slice_info_filaments(metadata_dir, print_queue)
+                update_project_settings_filament_ids(metadata_dir, print_queue)
 
                 repack_3mf(tempdirname, output_path)
         except FileNotFoundError as exc:
@@ -92,7 +97,15 @@ class BambuA1(OC_Ecosystem):
 
                 filaments, filament_usage = read_slice_info(metadata_dir)
                 if filaments or filament_usage:
+                    settings_ids = read_filament_settings_ids(metadata_dir)
                     for file_print in print_data:
+                        for filament in filaments:
+                            try:
+                                index = int(filament.get_ams_id()) - 1
+                            except ValueError:
+                                continue
+                            if 0 <= index < len(settings_ids):
+                                filament.set_settings_id(settings_ids[index])
                         file_print.set_filaments(filaments)
                         file_print.set_filament_usage(filament_usage)
 

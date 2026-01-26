@@ -20,7 +20,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from OC_print_data import OC_Filament, OC_FilamentUsage
+from OC_print_data import OC_Filament, OC_FilamentUsage, OC_PrintQueue
 
 
 def find_plate_gcodes(metadata_dir: Path) -> list[Path]:
@@ -80,6 +80,90 @@ def read_project_settings(metadata_dir: Path):
     if isinstance(temps, str):
         return temps
     return None
+
+
+def read_filament_settings_ids(metadata_dir: Path) -> list[str]:
+    project_settings_path = metadata_dir / "project_settings.config"
+    if not project_settings_path.exists():
+        return []
+    try:
+        settings = json.loads(project_settings_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return []
+    settings_ids = settings.get("filament_settings_id")
+    if isinstance(settings_ids, list):
+        return settings_ids
+    return []
+
+
+def update_project_settings_filament_ids(metadata_dir: Path, print_queue: OC_PrintQueue) -> None:
+    project_settings_path = metadata_dir / "project_settings.config"
+    if not project_settings_path.exists():
+        return
+    try:
+        settings = json.loads(project_settings_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return
+
+    existing_ids = settings.get("filament_settings_id")
+    if not isinstance(existing_ids, list):
+        existing_ids = []
+
+    max_index = len(existing_ids)
+    filament_entries = []
+    for filament in print_queue.get_filaments().values():
+        try:
+            index = int(filament.get_ams_id()) - 1
+        except ValueError:
+            continue
+        filament_entries.append((index, filament))
+        if index + 1 > max_index:
+            max_index = index + 1
+
+    if max_index == 0:
+        return
+
+    updated_ids = list(existing_ids) + [""] * (max_index - len(existing_ids))
+    for index, filament in filament_entries:
+        settings_id = filament.get_settings_id()
+        if settings_id:
+            updated_ids[index] = settings_id
+
+    settings["filament_settings_id"] = updated_ids
+    project_settings_path.write_text(json.dumps(settings, indent=2))
+
+
+def update_slice_info_filaments(metadata_dir: Path, print_queue: OC_PrintQueue) -> None:
+    slice_info_path = metadata_dir / "slice_info.config"
+    if not slice_info_path.exists():
+        return
+    try:
+        tree = ET.parse(slice_info_path)
+    except ET.ParseError:
+        return
+
+    filaments = print_queue.get_filaments()
+    filament_usage = print_queue.get_filament_usage()
+    if not filaments:
+        return
+
+    root = tree.getroot()
+    for plate in root.findall(".//plate"):
+        for filament_id, filament in filaments.items():
+            usage = filament_usage.get(filament_id)
+            attrs = {
+                "id": filament.get_ams_id(),
+                "type": filament.get_type(),
+                "color": filament.get_color(),
+            }
+            if usage:
+                if usage.get_grams() is not None:
+                    attrs["used_g"] = f"{usage.get_grams():.2f}"
+                if usage.get_meters() is not None:
+                    attrs["used_m"] = f"{usage.get_meters():.2f}"
+            ET.SubElement(plate, "filament", attrs)
+
+    tree.write(slice_info_path, encoding="utf-8", xml_declaration=True)
 
 
 def extract_print_time_seconds(gcode_data: str):
