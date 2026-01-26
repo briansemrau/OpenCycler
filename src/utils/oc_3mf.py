@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+import os
 import shutil
 import tempfile
 import zipfile
@@ -47,9 +48,14 @@ def get_metadata_dir(tempdir: str | Path) -> Path:
 def repack_3mf(tempdir: str | Path, output_path: str) -> None:
     temp_path = Path(tempdir)
     with zipfile.ZipFile(output_path, "w") as zipout:
-        for path in temp_path.rglob("*"):
-            arcname = path.relative_to(temp_path).as_posix()
-            if path.is_dir():
-                zipout.writestr(f"{arcname}/", b"")
-                continue
-            zipout.write(path, arcname)
+        for root, dirs, files in os.walk(temp_path):
+            root_path = Path(root)
+            for name in files:
+                path = root_path / name
+                arcname = path.relative_to(temp_path).as_posix()
+                zipout.write(path, arcname)
+            for name in dirs:
+                path = root_path / name
+                if not any(path.iterdir()):
+                    arcname = path.relative_to(temp_path).as_posix()
+                    zipout.writestr(f"{arcname}/", b"")

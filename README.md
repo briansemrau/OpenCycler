@@ -9,7 +9,7 @@ Installation and Usage
 ----------------------
 Run the installer from the project root:
 ```
-./install.sh
+sudo ./install.sh
 ```
 
 Then run from anywhere:

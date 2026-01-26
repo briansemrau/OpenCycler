@@ -40,24 +40,17 @@ class BambuA1(OC_Ecosystem):
         super().__init__("bambu_a1", [".3mf"])
 
     def build_output(self, print_queue: OC_PrintQueue, output_path: str) -> None:
-        gcode_data = print_queue.generate_gcode()
         if not output_path:
             output_path = "output.3mf"
-        gcode_bytes = gcode_data.encode("utf-8")
-        gcode_md5 = hashlib.md5(gcode_bytes).hexdigest().encode("ascii")
+
+        gcode_data = print_queue.generate_gcode().encode("utf-8")
+        gcode_md5 = hashlib.md5(gcode_data).hexdigest().encode("ascii")
 
         try:
             with copy_template_to_tempdir(self.get_name()) as tempdirname:
                 metadata_dir = get_metadata_dir(tempdirname)
 
-                for gcode_path in metadata_dir.rglob("*.gcode"):
-                    if gcode_path.name != "plate_1.gcode":
-                        gcode_path.unlink()
-                for md5_path in metadata_dir.rglob("*.gcode.md5"):
-                    if md5_path.name != "plate_1.gcode.md5":
-                        md5_path.unlink()
-
-                (metadata_dir / "plate_1.gcode").write_bytes(gcode_bytes)
+                (metadata_dir / "plate_1.gcode").write_bytes(gcode_data)
                 (metadata_dir / "plate_1.gcode.md5").write_bytes(gcode_md5)
 
                 tile_image = generate_tile_thumbnail(print_queue)

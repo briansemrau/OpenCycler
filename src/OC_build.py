@@ -28,17 +28,18 @@ def build_print_queue(
 ) -> OC_PrintQueue:
     print_queue = OC_PrintQueue()
     if start_cycle:
-        print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
-        if insert_pause:
-            print_queue.add_print(OC_PausePrint(plate_cycler.get_pause_gcode()))
+        _insert_cycle(print_queue, plate_cycler, insert_pause)
     for index, file_print in enumerate(print_data):
         bed_level_gcode = plate_cycler.get_bed_level_gcode(file_print.get_bed_level_temp())
         print_queue.add_print(OC_LevelPrint(bed_level_gcode))
         print_queue.add_print(file_print)
         if index < len(print_data) - 1:
-            print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
-            if insert_pause:
-                print_queue.add_print(OC_PausePrint(plate_cycler.get_pause_gcode()))
+            _insert_cycle(print_queue, plate_cycler, insert_pause)
     if not skip_end_cycle:
-        print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
+        _insert_cycle(print_queue, plate_cycler, False)
     return print_queue
+
+def _insert_cycle(print_queue: OC_PrintQueue, plate_cycler: OC_PlateCycler, insert_pause: bool):
+    print_queue.add_print(OC_CyclePrint(plate_cycler.get_cycle_gcode()))
+    if insert_pause:
+        print_queue.add_print(OC_PausePrint(plate_cycler.get_pause_gcode()))
