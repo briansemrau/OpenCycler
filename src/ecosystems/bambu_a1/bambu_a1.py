@@ -28,13 +28,15 @@ from .metadata import (
     find_plate_gcodes,
     plate_number_from_filename,
     read_gcode,
-    read_filament_settings_ids,
+    read_all_filament_profiles,
     read_plate_image,
+    read_plate_names,
     read_project_settings,
     read_slice_info,
+    remap_gcode_ams_references,
     set_plate_images,
     update_slice_info_filaments,
-    update_project_settings_filament_ids,
+    update_project_settings_filaments,
 )
 
 
@@ -46,7 +48,11 @@ class BambuA1(OC_Ecosystem):
         if not output_path:
             output_path = "output.3mf"
 
-        gcode_data = print_queue.generate_gcode().encode("utf-8")
+        print(f"DEBUG: Building output with {len(print_queue.get_filaments())} consolidated filaments:")
+        for slot_id, filament in print_queue.get_filaments().items():
+            print(f"  Slot {slot_id}: {filament.get_color()} {filament.get_type()} {filament.get_vendor()} {filament.get_filament_id()}")
+        
+        gcode_data = print_queue.generate_gcode(remap_gcode_ams_references).encode("utf-8")
         gcode_md5 = hashlib.md5(gcode_data).hexdigest().encode("ascii")
 
         try:
@@ -60,7 +66,7 @@ class BambuA1(OC_Ecosystem):
                 if tile_image:
                     set_plate_images(metadata_dir, tile_image)
                 update_slice_info_filaments(metadata_dir, print_queue)
-                update_project_settings_filament_ids(metadata_dir, print_queue)
+                update_project_settings_filaments(metadata_dir, print_queue)
 
                 repack_3mf(tempdirname, output_path)
         except FileNotFoundError as exc:
@@ -80,13 +86,19 @@ class BambuA1(OC_Ecosystem):
                     print(f"Error: {filename} no gcode file found in Metadata.")
                     sys.exit(1)
 
+                plate_names = read_plate_names(metadata_dir)
+
                 for gcode_path in gcode_files:
                     file_print = OC_FilePrint()
                     plate_num = plate_number_from_filename(gcode_path.name)
                     if plate_num is not None:
-                        file_print.set_name(f"{base_name}_plate{plate_num}")
+                        plate_name = plate_names.get(plate_num, f"{base_name}_plate{plate_num}")
+                        file_print.set_name(plate_name)
+                        file_print.set_plate_number(plate_num)
                     else:
                         file_print.set_name(f"{base_name}_{gcode_path.stem}")
+                    file_print.set_source_file(filename)
+                    file_print.set_enabled(True)
                     gcode_data = read_gcode(gcode_path)
                     file_print.set_gcode(gcode_data)
                     file_print.set_print_time_seconds(extract_print_time_seconds(gcode_data))
@@ -96,16 +108,23 @@ class BambuA1(OC_Ecosystem):
                     print_data.append(file_print)
 
                 filaments, filament_usage = read_slice_info(metadata_dir)
+                print(f"DEBUG: Extracted {len(filaments)} filaments from {filename}")
                 if filaments or filament_usage:
-                    settings_ids = read_filament_settings_ids(metadata_dir)
+                    all_profiles = read_all_filament_profiles(metadata_dir)
                     for file_print in print_data:
                         for filament in filaments:
                             try:
                                 index = int(filament.get_ams_id()) - 1
                             except ValueError:
                                 continue
-                            if 0 <= index < len(settings_ids):
-                                filament.set_settings_id(settings_ids[index])
+                            if 0 <= index < len(all_profiles):
+                                profile = all_profiles[index]
+                                filament.set_settings_id(profile.get_settings_id())
+                                filament.set_filament_id(profile.get_filament_id())
+                                filament.set_vendor(profile.get_vendor())
+                                filament.set_color(profile.get_color())
+                                filament.set_type(profile.get_type())
+                                print(f"DEBUG: Read filament for {file_print.get_name()} AMS {filament.get_ams_id()}: {profile.get_color()} {profile.get_type()} {profile.get_vendor()} {profile.get_filament_id()} ({profile.get_settings_id()})")
                         file_print.set_filaments(filaments)
                         file_print.set_filament_usage(filament_usage)
 

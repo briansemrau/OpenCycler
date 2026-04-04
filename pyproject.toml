@@ -14,10 +14,11 @@ dependencies = [
 
 [project.scripts]
 opencycler = "opencycler:main"
+opencycler-gui = "opencycler_gui:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-py-modules = ["opencycler", "OC_build", "OC_print_data"]
+py-modules = ["opencycler", "opencycler_gui", "OC_build", "OC_print_data"]
 packages = [
   "ecosystems",
   "ecosystems.bambu_a1",

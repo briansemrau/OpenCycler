@@ -22,6 +22,8 @@ class OC_Filament:
         self._type = filament_type
         self._color = color
         self._settings_id = ""
+        self._filament_id = ""
+        self._vendor = ""
 
     def get_ams_id(self) -> str:
         return self._ams_id
@@ -46,12 +48,29 @@ class OC_Filament:
 
     def set_settings_id(self, settings_id: str) -> None:
         self._settings_id = settings_id
+
+    def get_filament_id(self) -> str:
+        return self._filament_id
+
+    def set_filament_id(self, filament_id: str) -> None:
+        self._filament_id = filament_id
+
+    def get_vendor(self) -> str:
+        return self._vendor
+
+    def set_vendor(self, vendor: str) -> None:
+        self._vendor = vendor
     
     def __eq__(self, other):
         return self.get_ams_id() == other.get_ams_id() and \
         self.get_type() == other.get_type() and \
         self.get_color() == other.get_color() and \
-        self.get_settings_id() == other.get_settings_id()
+        self.get_settings_id() == other.get_settings_id() and \
+        self.get_vendor() == other.get_vendor() and \
+        self.get_filament_id() == other.get_filament_id()
+    
+    def get_unique_key(self) -> tuple:
+        return (self.get_settings_id(), self.get_type(), self.get_vendor(), self.get_filament_id(), self.get_color())
 
 class OC_FilamentUsage:
     def __init__(self, ams_id: str = "", grams: float | None = None, meters: float | None = None):
@@ -114,6 +133,10 @@ class OC_FilePrint(OC_Print):
         self._filaments = {}
         self._filament_usage = {}
         self._bed_level_temp = None
+        self._enabled = True
+        self._source_file = ""
+        self._plate_number = None
+        self._repeat_count = 1
 
     def get_filaments(self) -> dict[str, OC_Filament]:
         return self._filaments
@@ -135,6 +158,32 @@ class OC_FilePrint(OC_Print):
     def set_bed_level_temp(self, bed_level_temp) -> None:
         self._bed_level_temp = bed_level_temp
 
+    def get_enabled(self) -> bool:
+        return self._enabled
+
+    def set_enabled(self, enabled: bool) -> None:
+        self._enabled = enabled
+
+    def get_source_file(self) -> str:
+        return self._source_file
+
+    def set_source_file(self, source_file: str) -> None:
+        self._source_file = source_file
+
+    def get_plate_number(self):
+        return self._plate_number
+
+    def set_plate_number(self, plate_number) -> None:
+        self._plate_number = plate_number
+
+    def get_repeat_count(self) -> int:
+        return self._repeat_count
+
+    def set_repeat_count(self, count: int) -> None:
+        if count < 1:
+            count = 1
+        self._repeat_count = count
+
 class OC_CyclePrint(OC_Print):
     def __init__(self, gcode: str):
         super().__init__(name="[cycle]", gcode=gcode, print_time_seconds=None)
@@ -152,6 +201,7 @@ class OC_PrintQueue:
         self.prints = []
         self.filaments = {}
         self.filament_usage = {}
+        self.filament_remapping = {}
         self._total_print_time_seconds = 0
         self._has_unknown_print_time = False
     
@@ -163,32 +213,118 @@ class OC_PrintQueue:
                 self._has_unknown_print_time = True
             else:
                 self._total_print_time_seconds += int(print_time_seconds)
+            
+            print_index = len(self.prints) - 1
+            remapping = {}
+            
             for filament_id, filament in print_data.get_filaments().items():
-                existing = self.filaments.get(filament_id)
-                if existing is None:
-                    self.filaments[filament_id] = filament
-                    continue
-                if existing != filament:
-                    print(f"Error: filament id {filament_id} conflicts with a different filament definition.")
-                    sys.exit(1)
-
+                unique_key = filament.get_unique_key()
+                existing_filament = None
+                existing_slot = None
+                
+                print(f"DEBUG: Processing filament {filament_id} from {print_data.get_name()}")
+                print(f"  Unique key: {unique_key}")
+                
+                for slot_id, existing in self.filaments.items():
+                    if existing.get_unique_key() == unique_key:
+                        existing_filament = existing
+                        existing_slot = slot_id
+                        print(f"  Found match in slot {slot_id}")
+                        break
+                
+                if existing_filament is not None:
+                    remapping[filament_id] = existing_slot
+                    print(f"  -> Mapping to existing slot {existing_slot}")
+                else:
+                    new_slot = str(len(self.filaments) + 1)
+                    filament.set_ams_id(new_slot)
+                    self.filaments[new_slot] = filament
+                    remapping[filament_id] = new_slot
+                    print(f"  -> New unique filament, assigned to slot {new_slot}")
+            
+            if remapping:
+                self.filament_remapping[print_index] = remapping
+                print(f"DEBUG: Remapping for {print_data.get_name()}: {remapping}")
+            
+            if len(self.filaments) > 4:
+                print(f"Warning: {len(self.filaments)} unique filaments consolidated (max 4 recommended for AMS)")
+            
+            print(f"DEBUG: Total unique filaments so far: {len(self.filaments)}")
+            for slot_id, filament in self.filaments.items():
+                print(f"  Slot {slot_id}: {filament.get_color()} {filament.get_type()} {filament.get_vendor()} {filament.get_filament_id()}")
+            
             for filament_id, usage in print_data.get_filament_usage().items():
-                existing_usage = self.filament_usage.get(filament_id)
+                remapped_id = self.filament_remapping.get(print_index, {}).get(filament_id, filament_id)
+                existing_usage = self.filament_usage.get(remapped_id)
                 if existing_usage is None:
-                    self.filament_usage[filament_id] = usage
-                    continue
-                if usage.get_grams() is not None:
-                    prior = existing_usage.get_grams() or 0.0
-                    existing_usage.set_grams(prior + usage.get_grams())
-                if usage.get_meters() is not None:
-                    prior = existing_usage.get_meters() or 0.0
-                    existing_usage.set_meters(prior + usage.get_meters())
+                    new_usage = OC_FilamentUsage(remapped_id, usage.get_grams(), usage.get_meters())
+                    self.filament_usage[remapped_id] = new_usage
+                else:
+                    if usage.get_grams() is not None:
+                        prior = existing_usage.get_grams() or 0.0
+                        existing_usage.set_grams(prior + usage.get_grams())
+                    if usage.get_meters() is not None:
+                        prior = existing_usage.get_meters() or 0.0
+                        existing_usage.set_meters(prior + usage.get_meters())
     
-    def generate_gcode(self) -> str:
+    def get_remapping(self, print_index: int) -> dict:
+        return self.filament_remapping.get(print_index, {})
+    
+    def needs_remapping(self, print_index: int) -> bool:
+        remapping = self.get_remapping(print_index)
+        for old_id, new_id in remapping.items():
+            if old_id != new_id:
+                return True
+        return False
+    
+    def generate_gcode(self, remap_func=None) -> str:
         full_gcode = ""
-        for print_item in self.prints:
-            full_gcode += print_item.get_gcode()
+        for idx, print_item in enumerate(self.prints):
+            gcode = print_item.get_gcode()
+            if remap_func and isinstance(print_item, OC_FilePrint):
+                remapping = self.get_remapping(idx)
+                if remapping:
+                    print(f"DEBUG: Applying gcode remapping to {print_item.get_name()}: {remapping}")
+                    gcode = remap_func(gcode, remapping)
+            full_gcode += gcode
+        full_gcode = self._remove_duplicate_blocks(full_gcode)
         return full_gcode
+    
+    def _remove_duplicate_blocks(self, gcode: str) -> str:
+        lines = gcode.split("\n")
+        result = []
+        header_seen = False
+        config_seen = False
+        in_header = False
+        in_config = False
+        
+        for line in lines:
+            if line.startswith("; HEADER_BLOCK_START"):
+                in_header = True
+                if header_seen:
+                    continue
+                result.append(line)
+            elif line.startswith("; HEADER_BLOCK_END"):
+                result.append(line)
+                in_header = False
+                header_seen = True
+            elif in_header and header_seen:
+                continue
+            elif line.startswith("; CONFIG_BLOCK_START"):
+                in_config = True
+                if config_seen:
+                    continue
+                result.append(line)
+            elif line.startswith("; CONFIG_BLOCK_END"):
+                in_config = False
+                config_seen = True
+                result.append(line)
+            elif in_config and config_seen:
+                continue
+            else:
+                result.append(line)
+        
+        return "\n".join(result)
 
     def get_prints(self) -> list[OC_Print]:
         return self.prints
@@ -201,6 +337,13 @@ class OC_PrintQueue:
 
     def get_total_print_time_seconds(self) -> int:
         return self._total_print_time_seconds
+
+    def get_total_weight_grams(self) -> float:
+        total = 0.0
+        for usage in self.filament_usage.values():
+            if usage.get_grams() is not None:
+                total += usage.get_grams()
+        return total
 
     def has_unknown_print_time(self) -> bool:
         return self._has_unknown_print_time

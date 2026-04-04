@@ -27,13 +27,15 @@ def build_print_queue(
     insert_pause: bool,
 ) -> OC_PrintQueue:
     print_queue = OC_PrintQueue()
+    enabled_prints = [p for p in print_data if p.get_enabled()]
+    
     if start_cycle:
         _insert_cycle(print_queue, plate_cycler, insert_pause)
-    for index, file_print in enumerate(print_data):
+    for index, file_print in enumerate(enabled_prints):
         bed_level_gcode = plate_cycler.get_bed_level_gcode(file_print.get_bed_level_temp())
         print_queue.add_print(OC_LevelPrint(bed_level_gcode))
         print_queue.add_print(file_print)
-        if index < len(print_data) - 1:
+        if index < len(enabled_prints) - 1:
             _insert_cycle(print_queue, plate_cycler, insert_pause)
     if not skip_end_cycle:
         _insert_cycle(print_queue, plate_cycler, False)
