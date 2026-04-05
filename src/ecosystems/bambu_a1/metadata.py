@@ -342,29 +342,52 @@ def remap_gcode_ams_references(gcode: str, remapping: dict) -> str:
     if not remapping:
         return gcode
     
+    # Build replacement maps (0-indexed tool numbers)
+    t_map = {}
+    m620_map = {}
+    m621_map = {}
+    
+    for old_id, new_id in remapping.items():
+        if old_id == new_id:
+            continue
+        old_num = int(old_id) - 1
+        new_num = int(new_id) - 1
+        t_map[old_num] = new_num
+        m620_map[old_num] = new_num
+        m621_map[old_num] = new_num
+    
+    if not t_map and not m620_map and not m621_map:
+        return gcode
+    
     lines = gcode.split("\n")
     result = []
-    changes_made = 0
     
     for line in lines:
         new_line = line
         
-        for old_id, new_id in remapping.items():
-            if old_id == new_id:
-                continue
-            
-            old_num = int(old_id) - 1
-            new_num = int(new_id) - 1
-            
-            if re.search(rf'\bM620\s+S{old_num}A\b', new_line):
-                new_line = re.sub(rf'\bM620\s+S{old_num}A\b', f'M620 S{new_num}A', new_line)
-                changes_made += 1
-            if re.search(rf'\bM621\s+S{old_num}A\b', new_line):
-                new_line = re.sub(rf'\bM621\s+S{old_num}A\b', f'M621 S{new_num}A', new_line)
-                changes_made += 1
-            if re.search(rf'\bT{old_num}\b', new_line):
-                new_line = re.sub(rf'\bT{old_num}\b', f'T{new_num}', new_line)
-                changes_made += 1
+        # Replace T commands - use placeholders to avoid cascading
+        for old_num, new_num in t_map.items():
+            placeholder = f"__T_PLACEHOLDER_{old_num}__"
+            new_line = re.sub(rf'\bT{old_num}\b', placeholder, new_line)
+        for old_num, new_num in t_map.items():
+            placeholder = f"__T_PLACEHOLDER_{old_num}__"
+            new_line = new_line.replace(placeholder, f'T{new_num}')
+        
+        # Replace M620 commands
+        for old_num, new_num in m620_map.items():
+            placeholder = f"__M620_PLACEHOLDER_{old_num}__"
+            new_line = re.sub(rf'\bM620\s+S{old_num}A\b', placeholder, new_line)
+        for old_num, new_num in m620_map.items():
+            placeholder = f"__M620_PLACEHOLDER_{old_num}__"
+            new_line = new_line.replace(placeholder, f'M620 S{new_num}A')
+        
+        # Replace M621 commands
+        for old_num, new_num in m621_map.items():
+            placeholder = f"__M621_PLACEHOLDER_{old_num}__"
+            new_line = re.sub(rf'\bM621\s+S{old_num}A\b', placeholder, new_line)
+        for old_num, new_num in m621_map.items():
+            placeholder = f"__M621_PLACEHOLDER_{old_num}__"
+            new_line = new_line.replace(placeholder, f'M621 S{new_num}A')
         
         result.append(new_line)
     

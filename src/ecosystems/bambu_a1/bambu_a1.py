@@ -111,20 +111,21 @@ class BambuA1(OC_Ecosystem):
                 print(f"DEBUG: Extracted {len(filaments)} filaments from {filename}")
                 if filaments or filament_usage:
                     all_profiles = read_all_filament_profiles(metadata_dir)
+                    for filament in filaments:
+                        try:
+                            index = int(filament.get_ams_id()) - 1
+                        except ValueError:
+                            continue
+                        if 0 <= index < len(all_profiles):
+                            profile = all_profiles[index]
+                            filament.set_settings_id(profile.get_settings_id())
+                            filament.set_filament_id(profile.get_filament_id())
+                            filament.set_vendor(profile.get_vendor())
+                            filament.set_color(profile.get_color())
+                            filament.set_type(profile.get_type())
                     for file_print in print_data:
                         for filament in filaments:
-                            try:
-                                index = int(filament.get_ams_id()) - 1
-                            except ValueError:
-                                continue
-                            if 0 <= index < len(all_profiles):
-                                profile = all_profiles[index]
-                                filament.set_settings_id(profile.get_settings_id())
-                                filament.set_filament_id(profile.get_filament_id())
-                                filament.set_vendor(profile.get_vendor())
-                                filament.set_color(profile.get_color())
-                                filament.set_type(profile.get_type())
-                                print(f"DEBUG: Read filament for {file_print.get_name()} AMS {filament.get_ams_id()}: {profile.get_color()} {profile.get_type()} {profile.get_vendor()} {profile.get_filament_id()} ({profile.get_settings_id()})")
+                            print(f"DEBUG: Read filament for {file_print.get_name()} AMS {filament.get_ams_id()}: {filament.get_color()} {filament.get_type()} {filament.get_vendor()} {filament.get_filament_id()} ({filament.get_settings_id()})")
                         file_print.set_filaments(filaments)
                         file_print.set_filament_usage(filament_usage)
 

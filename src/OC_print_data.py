@@ -237,8 +237,11 @@ class OC_PrintQueue:
                     print(f"  -> Mapping to existing slot {existing_slot}")
                 else:
                     new_slot = str(len(self.filaments) + 1)
-                    filament.set_ams_id(new_slot)
-                    self.filaments[new_slot] = filament
+                    new_filament = OC_Filament(new_slot, filament.get_type(), filament.get_color())
+                    new_filament.set_settings_id(filament.get_settings_id())
+                    new_filament.set_filament_id(filament.get_filament_id())
+                    new_filament.set_vendor(filament.get_vendor())
+                    self.filaments[new_slot] = new_filament
                     remapping[filament_id] = new_slot
                     print(f"  -> New unique filament, assigned to slot {new_slot}")
             
