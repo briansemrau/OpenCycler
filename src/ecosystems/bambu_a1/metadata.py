@@ -412,6 +412,35 @@ def extract_print_time_seconds(gcode_data: str):
     return total_seconds
 
 
+def detect_filaments_used_in_gcode(gcode: str) -> set[int]:
+    """
+    Scan G-code to detect which AMS slots (1-indexed) are actually used.
+    Looks for T commands (T0, T1, etc.) and M620/M621 commands with S parameter.
+    Returns a set of 1-indexed AMS slot numbers.
+    """
+    used_slots = set()
+    
+    # Find T commands (T0, T1, T2, T3) - these are 0-indexed
+    # Only match T followed by a single digit (0-3) to avoid false positives
+    t_matches = re.findall(r'\bT([0-3])\b', gcode)
+    for t_num in t_matches:
+        used_slots.add(int(t_num) + 1)  # Convert to 1-indexed
+    
+    # Find M620 S<n>A commands (unload from slot n)
+    # Only match single digit slot numbers (0-3)
+    m620_matches = re.findall(r'\bM620\s+S([0-3])A\b', gcode)
+    for s_num in m620_matches:
+        used_slots.add(int(s_num) + 1)  # Convert to 1-indexed
+    
+    # Find M621 S<n>A commands (load from slot n)
+    # Only match single digit slot numbers (0-3)
+    m621_matches = re.findall(r'\bM621\s+S([0-3])A\b', gcode)
+    for s_num in m621_matches:
+        used_slots.add(int(s_num) + 1)  # Convert to 1-indexed
+    
+    return used_slots
+
+
 def plate_number_from_filename(filename: str):
     match = re.search(r"plate_(?:no_light_)?(\d+)", filename, re.IGNORECASE)
     if not match:

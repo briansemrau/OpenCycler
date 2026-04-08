@@ -176,6 +176,7 @@ class OpenCyclerGUI:
             
     def clear_files(self):
         self.plates.clear()
+        self.output_var.set("output.3mf")
         self._refresh_list()
     
     def toggle_all_plates(self):

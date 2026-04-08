@@ -24,6 +24,7 @@ from OC_print_data import OC_FilePrint, OC_PrintQueue
 from utils.OC_image import generate_tile_thumbnail
 from utils.oc_3mf import copy_template_to_tempdir, extract_3mf_to_tempdir, get_metadata_dir, repack_3mf
 from .metadata import (
+    detect_filaments_used_in_gcode,
     extract_print_time_seconds,
     find_plate_gcodes,
     plate_number_from_filename,
@@ -48,10 +49,6 @@ class BambuA1(OC_Ecosystem):
         if not output_path:
             output_path = "output.3mf"
 
-        print(f"DEBUG: Building output with {len(print_queue.get_filaments())} consolidated filaments:")
-        for slot_id, filament in print_queue.get_filaments().items():
-            print(f"  Slot {slot_id}: {filament.get_color()} {filament.get_type()} {filament.get_vendor()} {filament.get_filament_id()}")
-        
         gcode_data = print_queue.generate_gcode(remap_gcode_ams_references).encode("utf-8")
         gcode_md5 = hashlib.md5(gcode_data).hexdigest().encode("ascii")
 
@@ -108,7 +105,6 @@ class BambuA1(OC_Ecosystem):
                     print_data.append(file_print)
 
                 filaments, filament_usage = read_slice_info(metadata_dir)
-                print(f"DEBUG: Extracted {len(filaments)} filaments from {filename}")
                 if filaments or filament_usage:
                     all_profiles = read_all_filament_profiles(metadata_dir)
                     for filament in filaments:
@@ -123,10 +119,20 @@ class BambuA1(OC_Ecosystem):
                             filament.set_vendor(profile.get_vendor())
                             filament.set_color(profile.get_color())
                             filament.set_type(profile.get_type())
+                    
                     for file_print in print_data:
+                        gcode = file_print.get_gcode()
+                        used_ams_slots = detect_filaments_used_in_gcode(gcode)
+                        
+                        used_filaments = []
+                        seen_slots = set()
                         for filament in filaments:
-                            print(f"DEBUG: Read filament for {file_print.get_name()} AMS {filament.get_ams_id()}: {filament.get_color()} {filament.get_type()} {filament.get_vendor()} {filament.get_filament_id()} ({filament.get_settings_id()})")
-                        file_print.set_filaments(filaments)
+                            slot_num = int(filament.get_ams_id())
+                            if slot_num in used_ams_slots and slot_num not in seen_slots:
+                                used_filaments.append(filament)
+                                seen_slots.add(slot_num)
+                        
+                        file_print.set_filaments(used_filaments)
                         file_print.set_filament_usage(filament_usage)
 
                 bed_temp = read_project_settings(metadata_dir)

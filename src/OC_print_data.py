@@ -222,19 +222,14 @@ class OC_PrintQueue:
                 existing_filament = None
                 existing_slot = None
                 
-                print(f"DEBUG: Processing filament {filament_id} from {print_data.get_name()}")
-                print(f"  Unique key: {unique_key}")
-                
                 for slot_id, existing in self.filaments.items():
                     if existing.get_unique_key() == unique_key:
                         existing_filament = existing
                         existing_slot = slot_id
-                        print(f"  Found match in slot {slot_id}")
                         break
                 
                 if existing_filament is not None:
                     remapping[filament_id] = existing_slot
-                    print(f"  -> Mapping to existing slot {existing_slot}")
                 else:
                     new_slot = str(len(self.filaments) + 1)
                     new_filament = OC_Filament(new_slot, filament.get_type(), filament.get_color())
@@ -243,18 +238,12 @@ class OC_PrintQueue:
                     new_filament.set_vendor(filament.get_vendor())
                     self.filaments[new_slot] = new_filament
                     remapping[filament_id] = new_slot
-                    print(f"  -> New unique filament, assigned to slot {new_slot}")
             
             if remapping:
                 self.filament_remapping[print_index] = remapping
-                print(f"DEBUG: Remapping for {print_data.get_name()}: {remapping}")
             
             if len(self.filaments) > 4:
                 print(f"Warning: {len(self.filaments)} unique filaments consolidated (max 4 recommended for AMS)")
-            
-            print(f"DEBUG: Total unique filaments so far: {len(self.filaments)}")
-            for slot_id, filament in self.filaments.items():
-                print(f"  Slot {slot_id}: {filament.get_color()} {filament.get_type()} {filament.get_vendor()} {filament.get_filament_id()}")
             
             for filament_id, usage in print_data.get_filament_usage().items():
                 remapped_id = self.filament_remapping.get(print_index, {}).get(filament_id, filament_id)
@@ -287,7 +276,6 @@ class OC_PrintQueue:
             if remap_func and isinstance(print_item, OC_FilePrint):
                 remapping = self.get_remapping(idx)
                 if remapping:
-                    print(f"DEBUG: Applying gcode remapping to {print_item.get_name()}: {remapping}")
                     gcode = remap_func(gcode, remapping)
             full_gcode += gcode
         full_gcode = self._remove_duplicate_blocks(full_gcode)
